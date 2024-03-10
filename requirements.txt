@@ -1,0 +1,14 @@
+fastapi 
+httpx
+pillow
+pytest 
+pytest-asyncio
+python-multipart
+requests
+streamlit
+torch
+torchvision
+types-Pillow
+types-requests
+ultralytics
+uvicorn
