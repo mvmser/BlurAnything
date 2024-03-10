@@ -107,7 +107,7 @@ Navigate to the provided URLs in your web browser to access the Streamlit interf
 Highly recommend to use Microsoft VS Code. You will find a folder ".vscode" with the settings and the extensions I'm using.
 After cloning, you will have a pop-up "Do you want to install the recommended extensions from Microsoft, Prettier and others for this repository?": click on install.
 
-![alt text](static\images\install_recommended.png)
+![alt text](static/images/install_recommended.png)
 
 ## Technical documentation
 
