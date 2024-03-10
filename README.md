@@ -101,3 +101,28 @@ Navigate to the provided URLs in your web browser to access the Streamlit interf
     ```bash
     .\run.ps1
     ```
+
+## Working environment
+
+Highly recommend to use Microsoft VS Code. You will find a folder ".vscode" with the settings and the extensions I'm using.
+After cloning, you will have a pop-up "Do you want to install the recommended extensions from Microsoft, Prettier and others for this repository?": click on install.
+
+![alt text](static\images\install_recommended.png)
+
+## Technical documentation
+
+```mermaid
+sequenceDiagram
+    participant User as User
+    participant Streamlit as Streamlit UI
+    participant FastAPI as FastAPI Backend
+    participant YOLOv8 as YOLOv8 Model
+
+    User->>+Streamlit: Upload Image & Select Model Type
+    Streamlit->>+FastAPI: POST /detect/ {image, model_type}
+    FastAPI->>+YOLOv8: Detect Objects (image, model_type)
+    YOLOv8-->>-FastAPI: Detection Results {objects, boxes}
+    FastAPI->>FastAPI: Process Results & Draw Boxes
+    FastAPI-->>-Streamlit: Response {detected_objects, image_path}
+    Streamlit-->>-User: Display Results & Image with Boxes
+```
