@@ -67,8 +67,8 @@ To set up BlurAnything on your local machine, follow these steps:
 
     ```text
     cd models
-    curl -o models/yolov8n.pt https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8n.pt
-    curl -o models/yolov8x.pt https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8x.pt
+    curl -L -o models/yolov8n.pt https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8n.pt
+    curl -L -o models/yolov8x.pt https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8x.pt
     ```
 
 ## Usage
@@ -119,8 +119,8 @@ sequenceDiagram
     participant YOLOv8 as YOLOv8 Model
 
     User->>+Streamlit: Upload Image & Select Model Type
-    Streamlit->>+FastAPI: POST /detect/ {image, model_type}
-    FastAPI->>+YOLOv8: Detect Objects (image, model_type)
+    Streamlit->>+FastAPI: POST /detect/ {image, type_model}
+    FastAPI->>+YOLOv8: Detect Objects (image, type_model)
     YOLOv8-->>-FastAPI: Detection Results {objects, boxes}
     FastAPI->>FastAPI: Process Results & Draw Boxes
     FastAPI-->>-Streamlit: Response {detected_objects, image_path}
