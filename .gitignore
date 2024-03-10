@@ -5,6 +5,7 @@
 *.jpg
 *.jpeg
 *.png
+!static/images/install_recommended.png
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
