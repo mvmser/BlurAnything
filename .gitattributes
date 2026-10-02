@@ -1,0 +1,7 @@
+# Keep GitHub diffs and language stats readable.
+*.onnx binary
+*.wasm binary
+web/vendor/** linguist-vendored -diff
+web/models/** linguist-vendored
+docs/** linguist-documentation
+tests/fixtures/** linguist-generated
