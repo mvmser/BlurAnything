@@ -1,7 +1,7 @@
 // Static configuration shared by the UI and the detector.
 
 // Absolute URLs resolved from this file, so they work from the page *and* from
-// the worker, and under any base path (e.g. https://user.github.io/BlurAnything/).
+// the worker, and under any base path (e.g. https://example.com/BlurAnything/).
 const asset = (path) => new URL(`../${path}`, import.meta.url).href;
 
 /**

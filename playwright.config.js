@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
 const PORT = 4173;
-const SUBPATH_PORT = 4174; // same site mounted under /BlurAnything/ (GitHub Pages project site)
+const SUBPATH_PORT = 4174; // same site mounted under /BlurAnything/ (e.g. served from a folder of a portfolio site)
 
 export default defineConfig({
   testDir: 'tests/e2e',

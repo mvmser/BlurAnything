@@ -1,7 +1,7 @@
 // Minimal static file server for local development and the e2e tests.
 //   node scripts/serve.mjs [--port 4173] [--dir web] [--base /BlurAnything/]
 // Sends correct MIME types for .wasm/.mjs/.onnx and disables caching.
-// --base mounts the site under a sub-path, like GitHub Pages project sites do.
+// --base mounts the site under a sub-path, to test hosting from a folder (e.g. a portfolio site).
 
 import { createServer } from 'node:http';
 import { createReadStream } from 'node:fs';

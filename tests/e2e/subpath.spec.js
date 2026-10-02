@@ -1,5 +1,5 @@
-// The site must work when hosted under a sub-path (GitHub Pages project site:
-// https://<user>.github.io/BlurAnything/). Nothing may assume it lives at "/".
+// The site must work when hosted under a sub-path (e.g. https://example.com/BlurAnything/,
+// a folder of a portfolio site). Nothing may assume it lives at "/".
 
 import { test, expect } from '@playwright/test';
 

@@ -4,8 +4,6 @@
 
 [![CI](https://github.com/mvmser/BlurAnything/actions/workflows/ci.yml/badge.svg)](https://github.com/mvmser/BlurAnything/actions/workflows/ci.yml)
 
-**[Live demo → mvmser.github.io/BlurAnything](https://mvmser.github.io/BlurAnything/)**
-
 ![BlurAnything editor](docs/screenshot-light.png)
 
 Sharing a photo often means hiding a bystander, a screen, a license plate or a name tag. Most online tools make you
@@ -75,7 +73,7 @@ npm start       # http://127.0.0.1:4173
 ```
 
 Any static file server works if it serves `.wasm` as `application/wasm`; the one in `scripts/serve.mjs` also supports
-`--base /BlurAnything/` to try the GitHub Pages sub-path layout.
+`--base /BlurAnything/` to try hosting under a sub-path (handy if your portfolio serves the app from a folder).
 
 ## Tests
 
@@ -92,19 +90,21 @@ requests, and an automated accessibility audit (axe-core, WCAG 2.1 A/AA, both th
 
 ## Deploy
 
-The whole site is the **`web/`** folder: static files, no build.
+The whole site is the **`web/`** folder: static files, no build step.
 
-**GitHub Pages** — already wired up. Once: _Settings → Pages → Build and deployment → Source: **GitHub Actions**_.
-Every push to the default branch then runs [`pages.yml`](.github/workflows/pages.yml) and publishes `web/`.
+**Netlify (recommended)** — _Add new site → Import an existing project_, pick this repository, leave the build command
+empty (the publish directory `web` comes from `netlify.toml`) and deploy. Every pull request then gets its own preview
+URL. Works with a private repository too. No repository at hand? Drag the `web/` folder onto
+<https://app.netlify.com/drop>.
 
-**Netlify · Vercel · Cloudflare Pages** — import the repository, no build command, publish directory `web`
-(`netlify.toml` and `vercel.json` are included). Security and cache headers live in `web/_headers` (Netlify, Cloudflare)
-and `vercel.json`.
+**Vercel · Cloudflare Pages** — same idea: no build command, output directory `web` (`vercel.json` is included).
 
-**Anywhere else** — upload the contents of `web/`. The same Content-Security-Policy is also embedded in `index.html`,
-so the privacy guarantee does not depend on server configuration.
+**Any other static host** — upload the contents of `web/`.
 
-After deploying, set `og:url` / `og:image` in `web/index.html` to absolute URLs if you want rich link previews.
+Security and cache headers live in `web/_headers` (Netlify, Cloudflare Pages) and `vercel.json`. The same
+Content-Security-Policy is also embedded in `index.html`, so the privacy guarantee does not depend on server
+configuration. After deploying, set `og:url` / `og:image` in `web/index.html` to absolute URLs if you want rich link
+previews.
 
 ## Models
 
@@ -143,7 +143,7 @@ BlurAnything/
 │   └── samples/ · icons/ · sw.js · manifest.webmanifest · _headers
 ├── scripts/                     export_models.py · vendor-ort.mjs · serve.mjs · make-icons.mjs · make-screenshots.mjs
 ├── tests/                       unit/ · e2e/ · fixtures/
-├── .github/workflows/           ci.yml · pages.yml
+├── .github/workflows/           ci.yml
 └── netlify.toml · vercel.json · playwright.config.js · package.json
 ```
 
@@ -168,4 +168,4 @@ BlurAnything détecte et floute n'importe quoi dans vos photos, **entièrement d
 envoyée. Le modèle YOLOv8 de segmentation tourne en WebAssembly ; vous cliquez les objets à masquer (ou dessinez vos
 zones), choisissez flou, pixelisation ou masque plein, puis exportez en pleine résolution sans métadonnées.
 L'interface est en français et en anglais, fonctionne hors ligne et se déploie en copiant le dossier `web/` sur
-n'importe quel hébergeur statique (GitHub Pages est préconfiguré).
+n'importe quel hébergeur statique (Netlify, Vercel, Cloudflare Pages…).
