@@ -1,0 +1,20 @@
+{
+  "name": "blur-anything",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Detect and blur anything in your photos — 100% client-side (YOLOv8 + ONNX Runtime Web).",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test tests/unit/*.test.js",
+    "test:e2e": "playwright test",
+    "vendor": "node scripts/vendor-ort.mjs",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "^4.13.0",
+    "@playwright/test": "1.56.1",
+    "prettier": "3.9.9"
+  }
+}

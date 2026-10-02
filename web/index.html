@@ -1,0 +1,220 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The app can only talk to its own origin: it is technically unable to upload your images. -->
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; form-action 'none'">
+  <meta name="referrer" content="no-referrer">
+  <title>BlurAnything — Blur anything in your photos, privately</title>
+  <meta name="description" content="Detect and blur people, vehicles, animals and objects in your photos. 100% in your browser with YOLOv8 and WebAssembly — nothing is uploaded.">
+  <meta name="color-scheme" content="light dark">
+  <meta name="theme-color" content="#f5f6fb" media="(prefers-color-scheme: light)">
+  <meta name="theme-color" content="#0b0d14" media="(prefers-color-scheme: dark)">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="BlurAnything — Blur anything in your photos, privately">
+  <meta property="og:description" content="AI object detection and blurring that runs 100% in your browser. Nothing is uploaded.">
+  <meta property="og:image" content="og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="A street photo where the people have been blurred, next to the BlurAnything logo">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="stylesheet" href="css/app.css">
+  <script src="js/theme-init.js"></script>
+</head>
+<body>
+  <!-- Icon sprite -->
+  <svg class="sprite" aria-hidden="true" focusable="false">
+    <defs>
+      <symbol id="i-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12"/></symbol>
+      <symbol id="i-copy" viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></symbol>
+      <symbol id="i-share" viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><path d="M8.6 13.5l6.8 4M15.4 6.5l-6.8 4"/></symbol>
+      <symbol id="i-x" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></symbol>
+      <symbol id="i-rect" viewBox="0 0 24 24"><rect x="3" y="5" width="18" height="14" rx="2"/></symbol>
+      <symbol id="i-ellipse" viewBox="0 0 24 24"><ellipse cx="12" cy="12" rx="10" ry="7"/></symbol>
+      <symbol id="i-eye" viewBox="0 0 24 24"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+      <symbol id="i-lock" viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+      <symbol id="i-scan" viewBox="0 0 24 24"><path d="M3 7V5a2 2 0 0 1 2-2h2M17 3h2a2 2 0 0 1 2 2v2M21 17v2a2 2 0 0 1-2 2h-2M7 21H5a2 2 0 0 1-2-2v-2"/><circle cx="12" cy="12" r="3"/></symbol>
+      <symbol id="i-sparkles" viewBox="0 0 24 24"><path d="M12 3l1.9 5.1L19 10l-5.1 1.9L12 17l-1.9-5.1L5 10l5.1-1.9zM19 16l.7 1.8L21.5 18.5l-1.8.7L19 21l-.7-1.8-1.8-.7 1.8-.7z"/></symbol>
+      <symbol id="i-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></symbol>
+      <symbol id="i-moon" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></symbol>
+      <symbol id="i-image" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="9" cy="9" r="2"/><path d="m21 15-3.1-3.1a2 2 0 0 0-2.8 0L6 21"/></symbol>
+      <symbol id="i-github" viewBox="0 0 24 24"><path stroke="none" fill="currentColor" d="M12 .3a12 12 0 0 0-3.8 23.4c.6.1.8-.3.8-.6v-2c-3.3.7-4-1.6-4-1.6-.6-1.4-1.4-1.8-1.4-1.8-1-.7.1-.7.1-.7 1.2.1 1.8 1.2 1.8 1.2 1 1.8 2.8 1.3 3.5 1 0-.8.4-1.3.7-1.6-2.7-.3-5.5-1.3-5.5-5.9 0-1.3.5-2.4 1.2-3.2 0-.4-.5-1.6.2-3.2 0 0 1-.3 3.3 1.2a11.5 11.5 0 0 1 6 0C17.3 4.7 18.3 5 18.3 5c.7 1.6.2 2.9.1 3.2.8.8 1.3 1.9 1.3 3.2 0 4.6-2.8 5.6-5.5 5.9.4.4.8 1.1.8 2.2v3.3c0 .3.2.7.8.6A12 12 0 0 0 12 .3"/></symbol>
+    </defs>
+  </svg>
+
+  <a class="skip" href="#main" data-i18n="skip">Skip to content</a>
+
+  <header class="topbar">
+    <a class="brand" href="./" aria-label="BlurAnything">
+      <img src="favicon.svg" alt="" width="28" height="28">
+      <span>BlurAnything</span>
+    </a>
+    <nav class="topnav">
+      <button id="langBtn" class="btn ghost sm" type="button" data-i18n-label="lang.toggle" data-i18n-title="lang.toggle">FR</button>
+      <button id="themeBtn" class="btn ghost sm icon" type="button" data-i18n-label="theme.toggle" data-i18n-title="theme.toggle">
+        <svg class="i i-moon" aria-hidden="true"><use href="#i-moon"/></svg>
+        <svg class="i i-sun" aria-hidden="true"><use href="#i-sun"/></svg>
+      </button>
+      <a class="btn ghost sm" href="https://github.com/mvmser/BlurAnything" target="_blank" rel="noopener">
+        <svg class="i" aria-hidden="true"><use href="#i-github"/></svg><span>GitHub</span>
+      </a>
+    </nav>
+  </header>
+
+  <main id="main">
+    <!-- ============ Landing ============ -->
+    <section id="landing" class="landing">
+      <div class="hero">
+        <p class="badge"><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="hero.badge">100% in your browser · nothing is uploaded</span></p>
+        <h1 data-i18n="hero.title">Blur anything in your photos.</h1>
+        <p class="lead" data-i18n="hero.lead">AI finds people, vehicles, animals and everyday objects. You pick what to hide. Your images never leave your device.</p>
+      </div>
+
+      <div id="dropzone" class="dropzone" role="button" tabindex="0" aria-describedby="dropHint">
+        <svg class="i big" aria-hidden="true"><use href="#i-upload"/></svg>
+        <strong data-i18n="drop.title">Drop an image here</strong>
+        <span id="dropHint" data-i18n="drop.hint">or click to browse — you can also paste with Ctrl+V</span>
+        <span class="muted" data-i18n="drop.formats">JPG, PNG, WebP…</span>
+      </div>
+
+      <div class="samples">
+        <p data-i18n="samples.title">No image at hand? Try an example</p>
+        <div id="sampleList" class="sample-list"></div>
+      </div>
+
+      <ul class="features">
+        <li>
+          <svg class="i" aria-hidden="true"><use href="#i-lock"/></svg>
+          <h2 data-i18n="feat.private.title">Private by design</h2>
+          <p data-i18n="feat.private.text">The AI model runs in your browser with WebAssembly. No upload, no account, no tracking — and it works offline once loaded.</p>
+        </li>
+        <li>
+          <svg class="i" aria-hidden="true"><use href="#i-scan"/></svg>
+          <h2 data-i18n="feat.precise.title">Precise masks</h2>
+          <p data-i18n="feat.precise.text">Instance segmentation follows the outline of each object instead of a crude rectangle.</p>
+        </li>
+        <li>
+          <svg class="i" aria-hidden="true"><use href="#i-sparkles"/></svg>
+          <h2 data-i18n="feat.anything.title">Blur anything</h2>
+          <p data-i18n="feat.anything.text">Click detected objects, or draw your own areas for faces, plates, screens and text.</p>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ============ Editor ============ -->
+    <section id="editor" class="editor" hidden>
+      <div class="stage-card">
+        <div class="toolbar">
+          <div class="tools" role="group" aria-label="Draw">
+            <button id="toolRect" class="btn tool" type="button" aria-pressed="false" data-i18n-title="tool.rect.title">
+              <svg class="i" aria-hidden="true"><use href="#i-rect"/></svg><span data-i18n="tool.rect">Rectangle</span>
+            </button>
+            <button id="toolEllipse" class="btn tool" type="button" aria-pressed="false" data-i18n-title="tool.ellipse.title">
+              <svg class="i" aria-hidden="true"><use href="#i-ellipse"/></svg><span data-i18n="tool.ellipse">Ellipse</span>
+            </button>
+          </div>
+          <button id="compareBtn" class="btn tool" type="button" data-i18n-title="tool.compare.title">
+            <svg class="i" aria-hidden="true"><use href="#i-eye"/></svg><span data-i18n="tool.compare">Hold to compare</span>
+          </button>
+          <span class="spacer"></span>
+          <button id="newBtn" class="btn" type="button">
+            <svg class="i" aria-hidden="true"><use href="#i-plus"/></svg><span data-i18n="tool.new">New image</span>
+          </button>
+          <button id="copyBtn" class="btn icon" type="button" data-i18n-label="tool.copy" data-i18n-title="tool.copy">
+            <svg class="i" aria-hidden="true"><use href="#i-copy"/></svg>
+          </button>
+          <button id="shareBtn" class="btn icon" type="button" hidden data-i18n-label="tool.share" data-i18n-title="tool.share">
+            <svg class="i" aria-hidden="true"><use href="#i-share"/></svg>
+          </button>
+          <button id="downloadBtn" class="btn primary" type="button">
+            <svg class="i" aria-hidden="true"><use href="#i-download"/></svg><span data-i18n="tool.download">Download</span>
+          </button>
+        </div>
+
+        <div id="stage" class="stage">
+          <div id="stageInner" class="stage-inner">
+            <canvas id="view" aria-label="Image preview"></canvas>
+            <div id="overlay" class="overlay"></div>
+            <div id="draft" class="draft" hidden></div>
+          </div>
+          <div id="busy" class="busy" hidden role="status" aria-live="polite">
+            <div class="busy-card">
+              <div class="spinner" aria-hidden="true"></div>
+              <p id="busyText"></p>
+              <div class="progress" id="busyProgress" hidden><span id="busyBar"></span></div>
+            </div>
+          </div>
+        </div>
+        <p id="hint" class="hint" role="status"></p>
+      </div>
+
+      <aside class="panel" aria-label="Settings">
+        <section class="card">
+          <h2 data-i18n="panel.model">Detection model</h2>
+          <div class="seg" role="radiogroup" aria-labelledby="modelLabel">
+            <span id="modelLabel" class="sr-only" data-i18n="panel.model">Detection model</span>
+            <label class="seg-item"><input type="radio" name="model" value="fast" checked><span><b data-i18n="model.fast">Fast</b><small id="modelFastSub"></small></span></label>
+            <label class="seg-item"><input type="radio" name="model" value="accurate"><span><b data-i18n="model.accurate">Accurate</b><small id="modelAccurateSub"></small></span></label>
+          </div>
+          <p id="modelStatus" class="status" role="status"></p>
+        </section>
+
+        <section class="card">
+          <div class="card-head">
+            <h2 data-i18n="panel.objects">Objects</h2>
+            <span id="objectCount" class="muted"></span>
+            <span class="spacer"></span>
+            <button id="selectAll" class="btn ghost xs" type="button" data-i18n="objects.all">All</button>
+            <button id="selectNone" class="btn ghost xs" type="button" data-i18n="objects.none">None</button>
+          </div>
+          <div id="chips" class="chips"></div>
+          <ul id="regionList" class="region-list"></ul>
+          <p id="emptyObjects" class="empty" hidden data-i18n="objects.empty">Nothing found. Lower the confidence or draw an area on the image.</p>
+          <label class="field">
+            <span class="field-head"><span data-i18n="objects.conf">Minimum confidence</span><output id="confOut"></output></span>
+            <input id="conf" type="range" min="15" max="90" step="5" value="30">
+          </label>
+        </section>
+
+        <section class="card">
+          <h2 data-i18n="panel.effect">Effect</h2>
+          <div class="seg three" role="radiogroup" aria-label="Effect">
+            <label class="seg-item"><input type="radio" name="style" value="blur" checked><span data-i18n="style.blur">Blur</span></label>
+            <label class="seg-item"><input type="radio" name="style" value="pixelate"><span data-i18n="style.pixelate">Pixelate</span></label>
+            <label class="seg-item"><input type="radio" name="style" value="solid"><span data-i18n="style.solid">Cover</span></label>
+          </div>
+          <label class="field" id="strengthField">
+            <span class="field-head"><span data-i18n="effect.strength">Strength</span><output id="strengthOut"></output></span>
+            <input id="strength" type="range" min="0" max="100" step="1" value="55">
+          </label>
+          <label class="field" data-i18n-title="effect.margin.title">
+            <span class="field-head"><span data-i18n="effect.margin">Margin</span><output id="marginOut"></output></span>
+            <input id="margin" type="range" min="0" max="100" step="1" value="25">
+          </label>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <p><svg class="i" aria-hidden="true"><use href="#i-lock"/></svg><span data-i18n="footer.privacy">Everything runs locally. Exported images carry no EXIF/GPS metadata.</span></p>
+    <p class="credits">
+      <span data-i18n="footer.credits">Built with YOLOv8 and ONNX Runtime Web</span> ·
+      <a href="https://github.com/mvmser/BlurAnything" target="_blank" rel="noopener" data-i18n="footer.source">Source code</a>
+    </p>
+  </footer>
+
+  <div id="dropOverlay" class="drop-overlay" hidden><div><svg class="i big" aria-hidden="true"><use href="#i-upload"/></svg><strong data-i18n="drop.overlay">Drop to open</strong></div></div>
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+  <input id="fileInput" type="file" accept="image/*" hidden>
+
+  <noscript><p class="noscript">BlurAnything needs JavaScript (WebAssembly) to run the detection model in your browser.</p></noscript>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

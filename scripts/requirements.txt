@@ -1,0 +1,7 @@
+# Only needed to re-export the ONNX models (python scripts/export_models.py).
+# The versions below are the ones the committed models were exported with.
+ultralytics==8.4.171
+onnx==1.23.1
+onnxslim==0.1.97
+onnxruntime==1.30.0
+numpy
