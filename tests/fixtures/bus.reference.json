@@ -1,0 +1,92 @@
+{
+  "fast": {
+    "model": "yolov8n-seg.onnx (ultralytics + onnxruntime, square 640 letterbox)",
+    "image": "bus.jpg",
+    "size": [810, 1080],
+    "conf": 0.25,
+    "iou": 0.7,
+    "detections": [
+      {
+        "name": "bus",
+        "classId": 5,
+        "score": 0.8611,
+        "box": [22.9, 229.4, 799.5, 737.0]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.8581,
+        "box": [217.4, 406.5, 345.4, 860.0]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.834,
+        "box": [50.8, 397.3, 244.2, 904.9]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.814,
+        "box": [669.9, 395.4, 810.0, 876.8]
+      },
+      {
+        "name": "skateboard",
+        "classId": 36,
+        "score": 0.4047,
+        "box": [669.2, 822.4, 809.9, 881.5]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.28,
+        "box": [1.6, 541.3, 77.4, 870.2]
+      }
+    ]
+  },
+  "accurate": {
+    "model": "yolov8s-seg.onnx (ultralytics + onnxruntime, square 640 letterbox)",
+    "image": "bus.jpg",
+    "size": [810, 1080],
+    "conf": 0.25,
+    "iou": 0.7,
+    "detections": [
+      {
+        "name": "bus",
+        "classId": 5,
+        "score": 0.9252,
+        "box": [19.0, 231.3, 799.5, 740.5]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.9104,
+        "box": [50.4, 399.4, 249.2, 902.5]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.8837,
+        "box": [221.5, 407.7, 343.7, 859.0]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.8732,
+        "box": [670.1, 392.7, 809.7, 879.0]
+      },
+      {
+        "name": "person",
+        "classId": 0,
+        "score": 0.6311,
+        "box": [0.4, 550.5, 78.2, 870.7]
+      },
+      {
+        "name": "tie",
+        "classId": 27,
+        "score": 0.2906,
+        "box": [285.0, 479.9, 301.9, 524.6]
+      }
+    ]
+  }
+}
