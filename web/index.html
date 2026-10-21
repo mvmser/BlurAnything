@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BlurAnything</title>
+  <meta name="description" content="Blur people, cars, screens and 80 other objects in your photos. AI runs in your browser: your images never leave your device.">
+  <meta property="og:title" content="BlurAnything">
+  <meta property="og:description" content="Private, in-browser object blurring powered by YOLOv8.">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <a class="brand" href="./"><span class="dot" aria-hidden="true"></span>BlurAnything</a>
+    <button id="lang" class="ghost" type="button" aria-label="Switch language">FR</button>
+  </header>
+
+  <main>
+    <section class="hero">
+      <h1 data-i18n="title">Blur anything in a photo.</h1>
+      <p class="lead" data-i18n="lead">People, cars, screens, and 77 other kinds of objects are detected by YOLOv8, then blurred in one click. The AI runs in your browser, so your images never leave your device.</p>
+    </section>
+
+    <section id="drop" class="drop" tabindex="0">
+      <input id="file" type="file" accept="image/jpeg,image/png,image/webp" hidden>
+      <p><strong data-i18n="drop">Drop an image here</strong></p>
+      <p class="muted" data-i18n="drop-sub">or click to choose a file. You can also paste one.</p>
+      <button id="sample" class="ghost" type="button" data-i18n="sample">Try a sample photo</button>
+    </section>
+
+    <section id="editor" class="editor" hidden>
+      <div class="stage">
+        <canvas id="canvas"></canvas>
+        <p id="status" class="status" role="status"></p>
+      </div>
+
+      <aside class="panel">
+        <div class="group">
+          <h2 data-i18n="auto">Blur every…</h2>
+          <div id="chips" class="chips"></div>
+        </div>
+
+        <div class="group">
+          <h2><span data-i18n="objects">Objects</span> <span id="count" class="muted"></span></h2>
+          <ul id="list" class="list"></ul>
+          <p class="hint muted" data-i18n="draw">Tip: drag on the image to blur any area by hand.</p>
+        </div>
+
+        <div class="group">
+          <h2 data-i18n="style">Style</h2>
+          <div class="segmented" role="radiogroup">
+            <label><input type="radio" name="method" value="gaussian" checked><span data-i18n="gaussian">Blur</span></label>
+            <label><input type="radio" name="method" value="pixelate"><span data-i18n="pixelate">Pixelate</span></label>
+            <label><input type="radio" name="method" value="solid"><span data-i18n="solid">Black box</span></label>
+          </div>
+          <label class="field"><span data-i18n="strength">Intensity</span><input id="strength" type="range" min="2" max="60" value="18"></label>
+          <label class="field"><span data-i18n="padding">Margin</span><input id="padding" type="range" min="0" max="50" value="5"></label>
+          <label class="field"><span data-i18n="confidence">Min. confidence</span><input id="confidence" type="range" min="5" max="95" step="5" value="25"></label>
+          <label class="check"><input id="boxes" type="checkbox" checked><span data-i18n="show-boxes">Show detection boxes</span></label>
+        </div>
+
+        <div class="actions">
+          <button id="download" class="primary" type="button" data-i18n="download">Download</button>
+          <button id="reset" class="ghost" type="button" data-i18n="new">New image</button>
+        </div>
+      </aside>
+    </section>
+
+    <section class="how">
+      <div><h3 data-i18n="how1-t">Private by design</h3><p class="muted" data-i18n="how1">The YOLOv8n model (13 MB) is downloaded once and runs locally with ONNX Runtime Web.</p></div>
+      <div><h3 data-i18n="how2-t">80 object classes</h3><p class="muted" data-i18n="how2">Trained on COCO: people, vehicles, animals, screens, phones, bags and more.</p></div>
+      <div><h3 data-i18n="how3-t">Also an API</h3><p class="muted" data-i18n="how3">The same pipeline ships as a FastAPI service with /detect and /blur endpoints, plus a Streamlit app.</p></div>
+    </section>
+  </main>
+
+  <footer class="muted">BlurAnything · YOLOv8 · ONNX Runtime Web</footer>
+
+  <script src="vendor/ort.wasm.min.js"></script>
+  <script type="module" src="app.js"></script>
+</body>
+</html>

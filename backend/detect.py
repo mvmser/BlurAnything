@@ -4,51 +4,30 @@
 -------------------------------------------------------------------------------
 
 This module provides functionality to detect objects in images using YOLOv8.
+Models are loaded once and cached. Weights live in the models/ folder and are
+downloaded there by Ultralytics on first use.
 """
 
 # backend/detect.py
 
 import logging
 import os
-from io import BytesIO
+from functools import lru_cache
+from typing import Iterable, List, Optional
 
-import numpy as np
 from PIL import Image
-from ultralytics import YOLO  # type: ignore
 
 logger = logging.getLogger("uvicorn")
 
-MODEL_PATHS = {"fast": "models/yolov8n.pt", "accurate": "models/yolov8x.pt"}
+MODELS_DIR = os.getenv("BLURANYTHING_MODELS_DIR", "models")
+MODEL_WEIGHTS = {"fast": "yolov8n.pt", "accurate": "yolov8x.pt"}
+DEFAULT_MODEL = os.getenv("BLURANYTHING_DEFAULT_MODEL", "fast")
 
 
-async def detect_objects(image_data: bytes, type_model: str = "accurate") -> dict:
+@lru_cache(maxsize=len(MODEL_WEIGHTS))
+def load_model(type_model: str):
     """
-    Detect objects in an image using the specified YOLOv8 model.
-
-    Args:
-        image_data (bytes): The image data in bytes.
-        type_model (str): Specifies the model type to use, either "fast" or "accurate".
-
-    Returns:
-        dict: A dictionary containing information about the detected objects,
-            the detection speed, and the path to the inferred image.
-    """
-    image = Image.open(BytesIO(image_data))
-    model = load_model(type_model)
-    results = perform_detection(model=model, image=image)
-    detected_objects = extract_detection_results(results)
-    inferred_image_path = render_and_save_image(results)
-
-    return {
-        "detected_objects": detected_objects,
-        "speed": results[0].speed,
-        "inferred_image_path": inferred_image_path,
-    }
-
-
-def load_model(type_model: str) -> YOLO:
-    """
-    Load the YOLO model based on the specified model type.
+    Load (once) the YOLO model for the given model type.
 
     Args:
         type_model (str): Specifies the model type to use, either "fast" or "accurate".
@@ -59,30 +38,71 @@ def load_model(type_model: str) -> YOLO:
     Raises:
         ValueError: If an invalid model type is provided.
     """
-    logger.info("Loading YOLO model: %s", type_model)
-    if type_model not in MODEL_PATHS:
+    if type_model not in MODEL_WEIGHTS:
         raise ValueError(
-            f"Invalid model type. Available options: {list(MODEL_PATHS.keys())}."
+            f"Invalid model type. Available options: {list(MODEL_WEIGHTS)}."
         )
-    model_path = MODEL_PATHS[type_model]
+
+    # Imported here so the API and the UI can start (and be tested) without
+    # paying the torch import cost until a model is really needed.
+    from ultralytics import YOLO  # type: ignore # pylint: disable=import-outside-toplevel
+
+    model_path = os.path.join(MODELS_DIR, MODEL_WEIGHTS[type_model])
+    logger.info("Loading YOLO model %s from %s", type_model, model_path)
     return YOLO(model_path)
 
 
-def perform_detection(model: YOLO, image: Image.Image):
+def get_class_names(type_model: str = DEFAULT_MODEL) -> List[str]:
     """
-    Perform object detection on the provided image using the given model.
+    List the object classes the model can detect.
 
     Args:
-        model (YOLO): The YOLO model to use for object detection.
-        image (Image.Image): The image to detect objects in.
+        type_model (str): The model type.
 
     Returns:
-        The result of the detection process.
+        list: Class names, ordered by class id.
     """
-    image_np = np.array(image)
-    image_np = image_np[:, :, ::-1]
+    names = load_model(type_model).names
+    return [names[i] for i in sorted(names)]
 
-    return model(image_np)
+
+def detect_objects(
+    image: Image.Image,
+    type_model: str = DEFAULT_MODEL,
+    confidence: float = 0.25,
+    classes: Optional[Iterable[str]] = None,
+) -> dict:
+    """
+    Detect objects in an image using the specified YOLOv8 model.
+
+    Args:
+        image (Image.Image): The image to analyse.
+        type_model (str): Specifies the model type to use, either "fast" or "accurate".
+        confidence (float): Minimum confidence score to keep a detection.
+        classes: Optional class names to keep; all classes are kept when empty.
+
+    Returns:
+        dict: {"detected_objects": [...], "speed": {...}, "width": int, "height": int}
+            Each detected object has the keys "object", "confidence",
+            "x_min", "y_min", "x_max", "y_max" (pixels).
+    """
+    model = load_model(type_model)
+    image = image.convert("RGB")
+    results = model.predict(image, conf=confidence, verbose=False)
+    detected_objects = extract_detection_results(results)
+
+    wanted = {c.strip().lower() for c in classes or [] if c.strip()}
+    if wanted:
+        detected_objects = [
+            obj for obj in detected_objects if obj["object"].lower() in wanted
+        ]
+
+    return {
+        "detected_objects": detected_objects,
+        "speed": results[0].speed,
+        "width": image.width,
+        "height": image.height,
+    }
 
 
 def extract_detection_results(results) -> list:
@@ -93,56 +113,28 @@ def extract_detection_results(results) -> list:
         results: The raw detection results from the YOLO model.
 
     Returns:
-        dict: A dictionary containing information about the detected objects
-            and potentially other metadata.
-            "detected_objects":
-                Each dictionary contains the keys:
-                    - "object": Name of the detected object.
-                    - "confidence": Confidence score of the detection.
-                    - "x_min": Minimum x-coordinate of the bounding box.
-                    - "y_min": Minimum y-coordinate of the bounding box.
-                    - "x_max": Maximum x-coordinate of the bounding box.
-                    - "y_max": Maximum y-coordinate of the bounding box.
-            "speed":
-            "inferred_image_pat":
+        list: One dict per detection, sorted by decreasing confidence.
     """
-    logger.info("Extracting YOLO Detection Results")
     result = results[0]
-
     detected_objects = []
-    if hasattr(result, "boxes") and len(result.boxes.data):
-        for i, box_data in enumerate(result.boxes.data):
-            class_id = int(result.boxes.cls[i].item())
-            conf = result.boxes.conf[i].item()
 
+    if result.boxes is not None:
+        for xyxy, cls, conf in zip(
+            result.boxes.xyxy.tolist(),
+            result.boxes.cls.tolist(),
+            result.boxes.conf.tolist(),
+        ):
             detected_objects.append(
                 {
-                    "object": result.names[class_id],
-                    "confidence": conf,
-                    "x_min": box_data[0].item(),
-                    "y_min": box_data[1].item(),
-                    "x_max": box_data[2].item(),
-                    "y_max": box_data[3].item(),
+                    "object": result.names[int(cls)],
+                    "confidence": round(float(conf), 4),
+                    "x_min": round(xyxy[0], 1),
+                    "y_min": round(xyxy[1], 1),
+                    "x_max": round(xyxy[2], 1),
+                    "y_max": round(xyxy[3], 1),
                 }
             )
 
-    logger.info("YOLO Detection Results: %s", result)
-    logger.info("YOLO Detection Results Boxes: %s ", result.boxes)
-
+    detected_objects.sort(key=lambda obj: obj["confidence"], reverse=True)
+    logger.info("YOLO detected %d objects", len(detected_objects))
     return detected_objects
-
-
-def render_and_save_image(results: list) -> str:
-    """
-    Render the image with bounding boxes for detected objects and save it.
-
-    Args:
-
-
-    Returns:
-        str: The path to the saved image with bounding boxes.
-    """
-    inferred_image_path = os.path.join("static", "inferences", "inferred_image.jpg")
-    results[0].save(filename=inferred_image_path)
-
-    return inferred_image_path
