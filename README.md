@@ -1,128 +1,137 @@
 # BlurAnything
 
-BlurAnything is an api and web application designed to offer users a powerful tool for blurring objects within images.
-It leverages YOLO (You Only Look Once) version 8 for state-of-the-art object detection and utilizes a Streamlit interface for ease of use, combined with a FastAPI backend for robust and scalable image processing. This application is perfect for protecting sensitive information in images without sacrificing user friendliness.
+Blur people, cars, screens and 77 other kinds of objects in a photo, in one click.
+BlurAnything detects objects with [YOLOv8](https://docs.ultralytics.com/models/yolov8/) and anonymises them with a gaussian blur, pixelation or a black box.
 
-## Project Structure
+It comes in three flavours that share the same pipeline:
 
-```text
-BlurAnything/
-│
-├── backend/                    # FastAPI backend
-│   ├── __init__.py
-│   ├── app.py                  # FastAPI main application
-│   ├── detect.py               # Object detection logic using YOLOv8
-│   └── utls.py                 # Utils
-│
-├── frontend/                   # Streamlit frontend
-│   ├── __init__.py
-│   └── streamlit_app.py        # Streamlit application file for frontend
-│
-├── models/                     # Directory for storing YOLOv8 models and weights
-│   └── (model files)           # YOLOv8 model files (not tracked in version control)
-│
-├── static/                     # Static files directory
-│   └── images/                 # Directory to store images (e.g., uploaded images, processed results)
-│
-├── tests/
-│   ├── __init__.py
-│   ├── test_streamlit_app.py   # Tests for Streamlit application
-│   ├── test_app.py             # Tests for FastAPI endpoints
-│   └── test_detect.py          # Tests for object detection logic
-│
-├── __init__.py
-├── LICENSE
-├── pytest.ini                  # Configuration file for pytest
-├── README.md                   # Project overview, setup instructions, and usage guide
-└── requirements.txt            # Python dependencies
-```
+| | What | Where the AI runs |
+|---|---|---|
+| **Web app** (`web/`) | Static site, deployed on Netlify | In the browser (ONNX Runtime Web). Images never leave the device. |
+| **API** (`backend/`) | FastAPI service with `/detect` and `/blur` | On the server (PyTorch) |
+| **Streamlit app** (`frontend/`) | Local UI for the API, or standalone | In-process, or through the API |
 
 ## Features
 
-- __Object Detection__: Utilizes YOLOv8 for accurate object detection in images.
-- __Image Blurring__: Offers precise blurring options to obscure detected objects, ensuring the protection of sensitive data or privacy in images.
-- __Streamlit Interface__: Provides a straightforward and interactive Streamlit interface for uploading images and viewing results.
-- __Customization Options__: Allows users to select specific objects for blurring, adjust the blurring intensity.
+- Detection of the 80 [COCO](https://cocodataset.org/) classes, with a fast (YOLOv8n) or accurate (YOLOv8x) model.
+- Auto-blur by class ("blur every person") plus object-by-object selection.
+- Three styles: gaussian blur, pixelate, black box. Adjustable intensity, margin and confidence threshold.
+- Web app only: draw any area by hand, paste images from the clipboard, FR/EN, dark/light theme.
+- Download of the anonymised image.
 
-## Installation
+## Project structure
 
-To set up BlurAnything on your local machine, follow these steps:
+```text
+BlurAnything/
+├── backend/
+│   ├── app.py              # FastAPI application (/health, /classes, /detect, /blur)
+│   ├── blur.py             # Pillow blur / pixelate / mask, shared with the Streamlit app
+│   └── detect.py           # YOLOv8 loading (cached) and detection
+├── frontend/
+│   └── streamlit_app.py    # Streamlit UI
+├── web/                    # In-browser version (Netlify)
+│   ├── index.html, app.js, style.css
+│   ├── yolo.js             # YOLOv8 pre/post-processing (letterbox, decode, NMS)
+│   ├── models/yolov8n.onnx # Exported YOLOv8n weights
+│   └── tests/              # Node unit tests
+├── tests/                  # Pytest suite
+├── Dockerfile, docker-compose.yml
+└── netlify.toml
+```
 
-1. Create a new virtual environnment:
+## Web app
 
-    ```bash
-    python -m venv venv
-    source venv/Scripts/activate  # On Windows
-    source venv/bin/activate      # On Unix or MacOS
+```bash
+cd web
+npm install
+npm run serve        # copies ONNX Runtime into web/vendor/ and serves on http://localhost:8080
+npm test
+```
 
-    ```
+Netlify builds it with `netlify.toml` (base `web/`, command `npm run build`, publish `.`).
+The COOP/COEP headers enable multi-threaded WebAssembly where the browser supports it.
 
-2. Install the required dependencies:
+To re-export the model after changing weights:
 
-    ```bash
-    pip install -r requirements.txt
-    ```
+```bash
+yolo export model=models/yolov8n.pt format=onnx imgsz=640 opset=12 simplify=True
+cp models/yolov8n.onnx web/models/
+```
 
-3. Download the YOLOv8 model weights in models folder.
+## API and Streamlit app
 
-    ```text
-    cd models
-    curl -L -o models/yolov8n.pt https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8n.pt
-    curl -L -o models/yolov8x.pt https://github.com/ultralytics/assets/releases/download/v8.1.0/yolov8x.pt
-    ```
+### With Docker
 
-## Usage
+```bash
+docker compose up --build
+```
 
-To start the BlurAnything application, run the following command:
+API on <http://localhost:8000> (docs at `/docs`), Streamlit on <http://localhost:8501>.
 
-1. Activate virtual environment
+### Locally
 
-    ```bash
-    source venv/Scripts/activate  # On Windows
-    source venv/bin/activate      # On Unix or MacOS
-    ```
+```bash
+python -m venv venv
+source venv/bin/activate            # Windows: venv\Scripts\activate
+pip install --index-url https://download.pytorch.org/whl/cpu torch torchvision   # optional, CPU-only torch
+pip install -r requirements-dev.txt
 
-2. Run API backend
+uvicorn backend.app:app --reload               # API
+streamlit run frontend/streamlit_app.py        # UI, runs detection in-process
+BLURANYTHING_API_URL=http://localhost:8000 streamlit run frontend/streamlit_app.py   # UI through the API
+```
 
-    ```shell
-    uvicorn backend.app:app --reload
-    ```
+On Windows, `.\run.ps1` starts both. Weights are downloaded to `models/` on first use.
 
-3. Run streamlit web app
+### Endpoints
 
-    ```shell
-    streamlit run frontend/streamlit_app.py
-    ```
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Liveness probe |
+| GET | `/classes` | Classes the model can detect |
+| POST | `/detect` | Form fields `file`, `type_model` (`fast`/`accurate`), `confidence`, `classes` (comma separated). Returns JSON detections. |
+| POST | `/blur` | Same fields plus `method` (`gaussian`/`pixelate`/`solid`), `strength`, `padding`, and optional `boxes` (JSON list) to blur exact regions. Returns the image; `X-Detections` holds the number of blurred regions. |
 
-Navigate to the provided URLs in your web browser to access the Streamlit interface (<http://localhost:8501>) and interact with the FastAPI backend (<http://127.0.0.1:8000>).
+```bash
+curl -F file=@photo.jpg -F classes=person,car -F method=pixelate \
+     http://localhost:8000/blur -o blurred.jpg
+```
 
-- __Note:__ You can also use an experimental script to run both the backend and the front end with:
+Errors are returned as `{"error": "..."}` with a 400 (bad input) or 413 (file too large) status.
 
-    ```bash
-    .\run.ps1
-    ```
+### Configuration
 
-## Working environment
+| Variable | Default | Used by |
+|---|---|---|
+| `BLURANYTHING_MODELS_DIR` | `models` | API, Streamlit |
+| `BLURANYTHING_DEFAULT_MODEL` | `fast` | API, Streamlit |
+| `BLURANYTHING_MAX_UPLOAD_MB` | `15` | API |
+| `BLURANYTHING_CORS_ORIGINS` | `http://localhost:8501` | API |
+| `BLURANYTHING_API_URL` | empty (in-process) | Streamlit |
 
-Highly recommend to use Microsoft VS Code. You will find a folder ".vscode" with the settings and the extensions I'm using.
-After cloning, you will have a pop-up "Do you want to install the recommended extensions from Microsoft, Prettier and others for this repository?": click on install.
+## Tests
 
-![alt text](static/images/install_recommended.png)
+```bash
+pytest -q             # unit tests, the model is mocked
+pytest -q -m slow     # end to end with the real YOLOv8n weights
+cd web && npm test    # web pre/post-processing
+```
 
-## Technical documentation
+## How it works
 
 ```mermaid
 sequenceDiagram
-    participant User as User
-    participant Streamlit as Streamlit UI
-    participant FastAPI as FastAPI Backend
-    participant YOLOv8 as YOLOv8 Model
-
-    User->>+Streamlit: Upload Image & Select Model Type
-    Streamlit->>+FastAPI: POST /detect/ {image, type_model}
-    FastAPI->>+YOLOv8: Detect Objects (image, type_model)
-    YOLOv8-->>-FastAPI: Detection Results {objects, boxes}
-    FastAPI->>FastAPI: Process Results & Draw Boxes
-    FastAPI-->>-Streamlit: Response {detected_objects, image_path}
-    Streamlit-->>-User: Display Results & Image with Boxes
+    participant User
+    participant UI as Web app / Streamlit
+    participant Model as YOLOv8
+    User->>UI: Upload image, pick classes and style
+    UI->>Model: Letterboxed 640x640 image
+    Model-->>UI: Boxes, classes, scores (after NMS)
+    UI->>UI: Blur selected boxes
+    UI-->>User: Preview and download
 ```
+
+## Licence
+
+BlurAnything is released under the [GNU AGPL-3.0](LICENSE), the same licence as the Ultralytics YOLOv8 library and weights it uses.
+The sample photo (`web/samples/street.jpg`) comes from the Ultralytics repository.
