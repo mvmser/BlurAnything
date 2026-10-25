@@ -133,5 +133,5 @@ sequenceDiagram
 
 ## Licence
 
-The code is under the licence in [LICENSE](LICENSE). YOLOv8 weights and the Ultralytics library are published under AGPL-3.0 by Ultralytics.
+BlurAnything is released under the [GNU AGPL-3.0](LICENSE), the same licence as the Ultralytics YOLOv8 library and weights it uses.
 The sample photo (`web/samples/street.jpg`) comes from the Ultralytics repository.
