@@ -11,6 +11,7 @@
     Cross-Origin-Embedder-Policy = "require-corp"
     X-Content-Type-Options = "nosniff"
     Referrer-Policy = "strict-origin-when-cross-origin"
+    X-Robots-Tag = "noindex, nofollow"
 
 [[headers]]
   for = "/models/*"
