@@ -98,3 +98,4 @@ cython_debug/
 # web demo assets
 !web/samples/*.jpg
 !web/models/*.onnx
+.netlify/
