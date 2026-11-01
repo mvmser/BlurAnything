@@ -16,7 +16,7 @@ It comes in three flavours that share the same pipeline:
 - Detection of the 80 [COCO](https://cocodataset.org/) classes, with a fast (YOLOv8n) or accurate (YOLOv8x) model.
 - Auto-blur by class ("blur every person") plus object-by-object selection.
 - Three styles: gaussian blur, pixelate, black box. Adjustable intensity, margin and confidence threshold.
-- Web app only: draw any area by hand, paste images from the clipboard, FR/EN, dark/light theme.
+- Web app only: tap an object on the photo to blur it, draw any area by hand, hold a button to compare with the original, paste images from the clipboard, FR/EN, light/dark theme (same "Sticker sobre" look as the other Moh' sites).
 - Download of the anonymised image.
 
 ## Project structure
@@ -30,7 +30,8 @@ BlurAnything/
 ├── frontend/
 │   └── streamlit_app.py    # Streamlit UI
 ├── web/                    # In-browser version (Netlify)
-│   ├── index.html, app.js, style.css
+│   ├── index.html, app.js, style.css, i18n.js
+│   ├── blur.js             # Gaussian blur in plain JS (Safari has no canvas filter)
 │   ├── yolo.js             # YOLOv8 pre/post-processing (letterbox, decode, NMS)
 │   ├── models/yolov8n.onnx # Exported YOLOv8n weights
 │   └── tests/              # Node unit tests
