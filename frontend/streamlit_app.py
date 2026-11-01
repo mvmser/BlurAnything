@@ -3,251 +3,207 @@
 -                    Blur Anything Streamlit Application                      -
 -------------------------------------------------------------------------------
 
-This Streamlit application interfaces with a FastAPI backend to perform object
-detection and blurring on uploaded images. Users can upload images, and the app
-will display detected objects. The backend uses YOLOv8 for object detection.
+This Streamlit application detects objects on an uploaded image and lets the
+user blur them, either automatically by class (e.g. every person) or one by one.
+
+By default detection runs in-process. Set BLURANYTHING_API_URL (for example
+http://localhost:8000) to send images to the FastAPI backend instead.
 """
 
 # frontend/streamlit_app.py
 
+import io
 import os
+import sys
+from pathlib import Path
+from typing import List, Optional
 
 import requests
 import streamlit as st
-from PIL import Image, ImageDraw, ImageFilter
-from requests.exceptions import JSONDecodeError
+from PIL import Image
+
+# Allow `streamlit run frontend/streamlit_app.py` from the project root.
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from backend.blur import METHODS, blur_regions, draw_boxes  # noqa: E402
+
+API_URL = os.getenv("BLURANYTHING_API_URL", "").rstrip("/")
+TIMEOUT_SECONDS = int(os.getenv("TIMEOUT_SECONDS", "60"))
+METHOD_LABELS = {"gaussian": "Gaussian blur", "pixelate": "Pixelate", "solid": "Black box"}
 
 
-def upload_image_ui():
+def send_image_to_backend(
+    image_bytes: bytes, filename: str, type_model: str, confidence: float
+) -> Optional[dict]:
     """
-    Create a UI for image upload.
+    Send the image to the FastAPI backend for object detection.
 
     Returns:
-        The uploaded file object if an image is uploaded, otherwise None.
+        The detection results, or None if the request failed.
     """
-    uploaded_image = st.file_uploader("Choose an image...", type=["jpg", "jpeg", "png"])
-    return uploaded_image
-
-
-def display_uploaded_image(uploaded_image):
-    """
-    Display the uploaded image in the Streamlit app.
-
-    Args:
-        uploaded_image: The image file uploaded by the user.
-    """
-    if uploaded_image is not None:
-        st.image(uploaded_image, caption="Uploaded Image", use_column_width=True)
-
-
-def send_image_to_backend(uploaded_image, type_model):
-    """
-    Send the uploaded image to the FastAPI backend for object detection.
-
-    Args:
-        uploaded_image: The image file uploaded by the user.
-
-    Returns:
-        The response from the backend API.
-    """
-    img_bytes = uploaded_image.read()
-    mime_type = uploaded_image.type
-    files = {"file": ("image.jpg", img_bytes, mime_type)}
-    data = {"type_model": type_model}
-
-    fastapi_backend_url = "http://localhost:8000/detect/"
-    timeout_seconds = int(os.getenv("TIMEOUT_SECONDS", "10"))
-
     try:
         response = requests.post(
-            fastapi_backend_url, files=files, data=data, timeout=timeout_seconds
+            f"{API_URL}/detect",
+            files={"file": (filename, image_bytes)},
+            data={"type_model": type_model, "confidence": confidence},
+            timeout=TIMEOUT_SECONDS,
         )
-        return response
-    except requests.RequestException as e:
-        st.error(f"Request failed: {e}")
+    except requests.RequestException as exc:
+        st.error(f"Request failed: {exc}")
         return None
 
+    try:
+        payload = response.json()
+    except ValueError:
+        payload = {}
+    if response.status_code != 200:
+        st.error(payload.get("error", "Failed to detect objects in the image."))
+        return None
+    return payload
 
-def display_detection_results(response, display_image) -> dict:
+
+def run_detection(
+    image_bytes: bytes, filename: str, type_model: str, confidence: float
+) -> Optional[dict]:
+    """Detect objects through the API when configured, in-process otherwise."""
+    if API_URL:
+        return send_image_to_backend(image_bytes, filename, type_model, confidence)
+
+    from backend.detect import detect_objects  # pylint: disable=import-outside-toplevel
+
+    image = Image.open(io.BytesIO(image_bytes))
+    return detect_objects(image, type_model=type_model, confidence=confidence)
+
+
+def select_regions(
+    detected_objects: List[dict], auto_classes: List[str], manual_indices: List[int]
+) -> List[dict]:
     """
-    Display the object detection results or an error message.
-
-    Args:
-        response: The response from the backend API.
-    """
-    if response.status_code == 200:
-        try:
-            detection_results = response.json()
-            st.write("Detection JSON Results:", detection_results)
-
-            if detection_results["detected_objects"]:
-                display_image_boxes = draw_boxes(display_image, detection_results)
-                st.image(
-                    display_image_boxes,
-                    caption="Detected Objects",
-                    use_column_width=True,
-                )
-                return detection_results["detected_objects"]
-            st.warning("No objects detected.")
-
-        except JSONDecodeError:
-            st.error("Failed to decode the response from the server.")
-    else:
-        try:
-            error_message = response.json().get(
-                "detail", "Failed to detect objects in the image."
-            )
-        except JSONDecodeError:
-            error_message = "Failed to detect objects in the image."
-        st.error(error_message)
-    return {}
-
-
-def draw_boxes(image: Image.Image, detection_results: dict):
-    """
-    Draw bounding boxes around detected objects on the image.
-
-    Args:
-        image (PIL.Image.Image): The image to draw on.
-        detection_results (dict): The dictionary containing detection results.
+    Pick the regions to blur: every object of the auto classes plus the manual picks.
 
     Returns:
-        PIL.Image.Image: The image with bounding boxes drawn.
+        list: The selected detections, without duplicates, in detection order.
     """
-    draw = ImageDraw.Draw(image)
-    for obj in detection_results["detected_objects"]:
-        box = (
-            obj["x_min"],
-            obj["y_min"],
-            obj["x_max"],
-            obj["y_max"],
-        )
-        draw.rectangle(box, outline="red", width=1)
-        draw.text(
-            (obj["x_min"], obj["y_min"]),
-            f"{obj['object']} {obj['confidence']:.2f}",
-            fill="red",
-        )
-    return image
-
-
-def blur_objects(image, detection_results, selected_indices, blur_radius=5):
-    """
-    Blur the selected objects in the image based on their indices.
-
-    Args:
-        image (PIL.Image.Image): The image to blur.
-        detection_results (list): The list containing detection results.
-        selected_indices (list): The list of indices of selected objects to blur.
-        blur_radius (int): The radius of the Gaussian blur.
-            Higher values produce a more pronounced blur.
-
-    Returns:
-        PIL.Image.Image: The image with selected objects blurred.
-    """
-    for index in selected_indices:
-        obj = detection_results[index]
-
-        box = (
-            int(obj["x_min"]),
-            int(obj["y_min"]),
-            int(obj["x_max"]),
-            int(obj["y_max"]),
-        )
-        region = image.crop(box)
-
-        blurred_region = region.filter(ImageFilter.GaussianBlur(blur_radius))
-        image.paste(blurred_region, box)
-    return image
-
-
-def select_object_blur(display_image, detected_objects):
-    """
-    Allow users to select detected objects by their indices for blurring and select blur intensity.
-
-    Args:
-        display_image (PIL.Image.Image): The image displayed.
-        detected_objects (list): A list of dictionaries containing detected object info.
-    """
-    st.sidebar.title("Select Objects to Blur")
-
-    # Slider for selecting blur radius (moved outside the if condition)
-    blur_radius = st.sidebar.slider(
-        "Blur Intensity", min_value=1, max_value=30, value=10, key="blur_radius"
-    )
-
-    object_labels = [
-        f"{i}: {obj['object']} ({obj['confidence']:.2f})"
+    wanted = set(auto_classes)
+    picked = set(manual_indices)
+    return [
+        obj
         for i, obj in enumerate(detected_objects)
+        if obj["object"] in wanted or i in picked
     ]
 
-    selected_indices = st.multiselect(
-        "Objects",
-        options=range(len(detected_objects)),
-        format_func=lambda x: object_labels[x],
-    )
 
-    if st.button("Blur"):
-        if selected_indices:
-            blurred_image = blur_objects(
-                display_image,
-                detected_objects,
-                selected_indices,
-                blur_radius=blur_radius,
-            )
-            st.image(blurred_image, caption="Blurred Image", use_column_width=True)
-        else:
-            st.warning("No objects selected for blurring.")
+def image_to_bytes(image: Image.Image, fmt: str) -> bytes:
+    """Encode an image for the download button."""
+    output = io.BytesIO()
+    image.save(output, format=fmt, quality=95)
+    return output.getvalue()
+
+
+def sidebar_settings() -> dict:
+    """Render the settings sidebar and return the chosen values."""
+    st.sidebar.header("Detection")
+    type_model = st.sidebar.radio(
+        "Model",
+        ["fast", "accurate"],
+        format_func=lambda m: {"fast": "Fast (YOLOv8n)", "accurate": "Accurate (YOLOv8x)"}[m],
+        horizontal=True,
+    )
+    confidence = st.sidebar.slider("Minimum confidence", 0.05, 0.95, 0.25, 0.05)
+
+    st.sidebar.header("Blur")
+    method = st.sidebar.selectbox("Style", METHODS, format_func=METHOD_LABELS.get)
+    strength = st.sidebar.slider(
+        "Intensity", 2, 60, 18, disabled=method == "solid"
+    )
+    padding = st.sidebar.slider("Margin around objects", 0.0, 0.5, 0.05, 0.05)
+    show_boxes = st.sidebar.checkbox("Show detection boxes", value=True)
+
+    st.sidebar.caption(
+        f"Backend: {'API ' + API_URL if API_URL else 'in-process'}"
+    )
+    return {
+        "type_model": type_model,
+        "confidence": confidence,
+        "method": method,
+        "strength": strength,
+        "padding": padding,
+        "show_boxes": show_boxes,
+    }
 
 
 def main():
     """
     Main function to run the Streamlit app.
     """
-    st.set_page_config(
-        page_title="BlurAnything",
-        page_icon=":eye:",
-        layout="centered",
-        initial_sidebar_state="auto",
-        menu_items=None,
+    st.set_page_config(page_title="BlurAnything", page_icon=":eye:", layout="wide")
+    st.title("BlurAnything")
+    st.caption("Detect people, cars, screens and 77 other kinds of objects, then blur them in one click.")
+
+    settings = sidebar_settings()
+    uploaded = st.file_uploader("Upload an image", type=["jpg", "jpeg", "png", "webp"])
+    if uploaded is None:
+        st.info("Upload an image to start.")
+        return
+
+    image_bytes = uploaded.getvalue()
+    image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+
+    # Detection is cached per image + model + confidence, so moving the blur
+    # sliders does not re-run the model.
+    cache_key = (uploaded.file_id, settings["type_model"], settings["confidence"])
+    if st.session_state.get("cache_key") != cache_key:
+        with st.spinner("Detecting objects..."):
+            results = run_detection(
+                image_bytes, uploaded.name, settings["type_model"], settings["confidence"]
+            )
+        if results is None:
+            return
+        st.session_state.cache_key = cache_key
+        st.session_state.results = results
+
+    detected = st.session_state.results["detected_objects"]
+    if not detected:
+        st.warning("No objects detected. Try lowering the minimum confidence.")
+        st.image(image, use_container_width=True)
+        return
+
+    found_classes = sorted({obj["object"] for obj in detected})
+    default_auto = [c for c in ("person",) if c in found_classes]
+    auto_classes = st.multiselect(
+        "Blur every…", found_classes, default=default_auto,
+        help="All detected objects of these classes are blurred.",
+    )
+    labels = [f"{i}: {obj['object']} ({obj['confidence']:.0%})" for i, obj in enumerate(detected)]
+    manual = st.multiselect(
+        "…and these objects", range(len(detected)), format_func=labels.__getitem__
     )
 
-    st.title("Blur Anything - Object Detection and Blurring")
+    regions = select_regions(detected, auto_classes, manual)
+    blurred = blur_regions(
+        image, regions, settings["method"], settings["strength"], settings["padding"]
+    )
 
-    type_model = st.selectbox("Select the model type:", ["fast", "accurate"], index=0)
-    uploaded_image = upload_image_ui()
-    display_uploaded_image(uploaded_image)
+    left, right = st.columns(2)
+    with left:
+        st.image(
+            draw_boxes(image, detected) if settings["show_boxes"] else image,
+            caption=f"{len(detected)} objects detected",
+            use_container_width=True,
+        )
+    with right:
+        st.image(blurred, caption=f"{len(regions)} regions blurred", use_container_width=True)
+        is_png = uploaded.name.lower().endswith(".png")
+        st.download_button(
+            "Download blurred image",
+            data=image_to_bytes(blurred, "PNG" if is_png else "JPEG"),
+            file_name=f"{Path(uploaded.name).stem}_blurred.{'png' if is_png else 'jpg'}",
+            mime="image/png" if is_png else "image/jpeg",
+            type="primary",
+        )
 
-    if uploaded_image is not None:
-        if "selected_objects" not in st.session_state:
-            st.session_state.selected_objects = []
-        if "detected_objects" not in st.session_state:
-            st.session_state.detected_objects = {}
-        if "display_image" not in st.session_state:
-            st.session_state.display_image = None
-
-        response = None
-        if st.button("Detect Objects"):
-            with st.spinner("Detecting objects..."):
-                response = send_image_to_backend(
-                    uploaded_image=uploaded_image, type_model=type_model
-                )
-            display_image = Image.open(uploaded_image).convert("RGB")
-            original_image = Image.open(uploaded_image).convert("RGB")
-            st.session_state.display_image = display_image
-            st.session_state.original_image = original_image
-
-            st.session_state.detected_objects = display_detection_results(
-                response, display_image
-            )
-
-        if st.session_state.detected_objects:
-            select_object_blur(
-                st.session_state.original_image, st.session_state.detected_objects
-            )
-
-        if response and st.button("Retry"):
-            st.rerun()
+    with st.expander("Detection details"):
+        st.json(st.session_state.results)
 
 
 if __name__ == "__main__":

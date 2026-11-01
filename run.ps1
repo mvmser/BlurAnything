@@ -1,28 +1,16 @@
-# Define paths
-$projectPath = "$PSScriptRoot"  # Assuming the script is located in the root of the project
+# Start the FastAPI backend and the Streamlit frontend (Windows PowerShell).
+$projectPath = "$PSScriptRoot"
 $venvPath = Join-Path $projectPath "venv"
-$requirementsFile = Join-Path $projectPath "requirements.txt"
-$backendApp = Join-Path $projectPath "backend/app.py"
-$frontendApp = Join-Path $projectPath "frontend/streamlit_app.py"
 
-# Create virtual environment if it doesn't exist
 if (-not (Test-Path $venvPath)) {
     python -m venv $venvPath
 }
+. (Join-Path $venvPath "Scripts/Activate.ps1")
+pip install -r (Join-Path $projectPath "requirements.txt")
 
-# Activate virtual environment
-$activateScript = Join-Path $venvPath "Scripts/Activate.ps1"
-. $activateScript
+$env:BLURANYTHING_API_URL = "http://localhost:8000"
+$api = "cd '$projectPath'; uvicorn backend.app:app --reload"
+$ui = "cd '$projectPath'; `$env:BLURANYTHING_API_URL='http://localhost:8000'; streamlit run frontend/streamlit_app.py"
 
-# Install requirements if not already installed
-if (-not (Test-Path $requirementsFile)) {
-    Write-Host "Requirements file not found."
-} else {
-    pip install -r $requirementsFile
-}
-
-$command1 = "cd '$projectPath'; uvicorn backend.app:app --reload"
-$command2 = "cd '$projectPath\frontend'; streamlit run streamlit_app.py"
-
-Start-Process powershell -ArgumentList "-NoExit -Command `"$command1`"" 
-Start-Process powershell -ArgumentList "-NoExit -Command `"$command2`"" 
+Start-Process powershell -ArgumentList "-NoExit -Command `"$api`""
+Start-Process powershell -ArgumentList "-NoExit -Command `"$ui`""
