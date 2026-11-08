@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { boxSizesForGauss, gaussianBlurRGBA } from "../blur.js";
+import { boxSizesForGauss, gaussianBlurRGBA, pixelateRGBA } from "../blur.js";
 
 function image(width, height, fill) {
   const data = new Uint8ClampedArray(width * height * 4);
@@ -54,5 +54,22 @@ test("tiny sigma is a no-op", () => {
   const img = image(8, 8, (x) => [x * 30, 0, 0, 255]);
   const before = Uint8ClampedArray.from(img.data);
   gaussianBlurRGBA(img, 0.2);
+  assert.deepEqual(img.data, before);
+});
+
+test("pixelate turns each block into its average colour", () => {
+  const img = image(10, 6, (x, y) => [x * 20, y * 40, 7, 255]);
+  pixelateRGBA(img, 4);
+  const px = (x, y) => Array.from(img.data.slice((y * 10 + x) * 4, (y * 10 + x) * 4 + 4));
+  assert.deepEqual(px(0, 0), px(3, 3)); // same 4x4 block
+  assert.notDeepEqual(px(0, 0), px(4, 0)); // next block
+  assert.deepEqual(px(8, 4), px(9, 5)); // partial block at the corner
+  assert.deepEqual(px(0, 0), [30, 60, 7, 255]); // mean of x=0..3 and y=0..3
+});
+
+test("pixelate with a block of 1 is a no-op", () => {
+  const img = image(5, 5, (x) => [x * 40, 0, 0, 255]);
+  const before = Uint8ClampedArray.from(img.data);
+  pixelateRGBA(img, 1);
   assert.deepEqual(img.data, before);
 });

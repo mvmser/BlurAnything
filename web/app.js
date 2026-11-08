@@ -2,7 +2,7 @@
 // Everything runs in the browser, nothing is uploaded.
 /* global ort */
 
-import { gaussianBlurRGBA } from "./blur.js";
+import { gaussianBlurRGBA, pixelateRGBA } from "./blur.js";
 import { CLASS_FR, STRINGS } from "./i18n.js";
 import { INPUT_SIZE, decode, letterbox, padBox, toTensorData } from "./yolo.js";
 
@@ -300,17 +300,12 @@ function blurredLayer(source, sigma) {
 }
 
 function pixelatedLayer(source, block) {
-  const small = document.createElement("canvas");
-  small.width = Math.max(1, Math.ceil(source.width / block));
-  small.height = Math.max(1, Math.ceil(source.height / block));
-  small.getContext("2d").drawImage(source, 0, 0, small.width, small.height);
-
   const out = document.createElement("canvas");
   out.width = source.width;
   out.height = source.height;
-  const octx = out.getContext("2d");
-  octx.imageSmoothingEnabled = false;
-  octx.drawImage(small, 0, 0, small.width * block, small.height * block, 0, 0, small.width * block, small.height * block);
+  const octx = out.getContext("2d", { willReadFrequently: true });
+  octx.drawImage(source, 0, 0);
+  octx.putImageData(pixelateRGBA(octx.getImageData(0, 0, out.width, out.height), block), 0, 0);
   return out;
 }
 
