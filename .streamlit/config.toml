@@ -1,0 +1,8 @@
+# Same "Sticker sobre" palette as the web app: ink, paper, a single blue.
+[theme]
+base = "light"
+primaryColor = "#2563eb"
+backgroundColor = "#fbfaf7"
+secondaryBackgroundColor = "#f0eee8"
+textColor = "#171717"
+font = "sans serif"
