@@ -58,3 +58,35 @@ export function gaussianBlurRGBA(image, sigma) {
   if (src !== data) data.set(src);
   return image;
 }
+
+/**
+ * Pixelate, in place, an RGBA image: every block x block cell becomes its average RGB colour.
+ */
+export function pixelateRGBA(image, block) {
+  const size = Math.max(1, Math.round(block));
+  if (size <= 1) return image;
+  const { data, width, height } = image;
+
+  for (let y0 = 0; y0 < height; y0 += size) {
+    const y1 = Math.min(y0 + size, height);
+    for (let x0 = 0; x0 < width; x0 += size) {
+      const x1 = Math.min(x0 + size, width);
+      let r = 0, g = 0, b = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * width + x) * 4;
+          r += data[i]; g += data[i + 1]; b += data[i + 2];
+        }
+      }
+      const n = (x1 - x0) * (y1 - y0);
+      r = Math.round(r / n); g = Math.round(g / n); b = Math.round(b / n);
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const i = (y * width + x) * 4;
+          data[i] = r; data[i + 1] = g; data[i + 2] = b;
+        }
+      }
+    }
+  }
+  return image;
+}
